@@ -42,7 +42,7 @@ Log out from postgres and run:
 ```
 
 
-### 4- PubSub Adapter setup
+### PubSub Adapter setup
 
 - Generate your JSON keyfile for your service account following [this instructions](https://cloud.google.com/iam/docs/creating-managing-service-account-keys)
 - Create the file `/config/google_cloud.keyfile.json` and load the created json in it.
@@ -51,6 +51,12 @@ Log out from postgres and run:
 
 ```bash
 	EDITOR=vim rails credentials:edit
+```
+
+### Start PubSub Worker
+
+```bash
+	rake pubsub
 ```
 
 Change the topic and subscription keys for your own.
