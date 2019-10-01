@@ -41,10 +41,19 @@ Log out from postgres and run:
   bundle exec rake db:create db:migrate
 ```
 
-Your server is ready to run. You can do this by executing `rails server` and going to [http://localhost:3000](http://localhost:3000). Happy coding!
 
+### 4- PubSub Adapter setup
 
+- Generate your JSON keyfile for your service account following [this instructions](https://cloud.google.com/iam/docs/creating-managing-service-account-keys)
+- Create the file `/config/google_cloud.keyfile.json` and load the created json in it.
+- Lookup your project in [this link](https://console.cloud.google.com/apis/api/pubsub.googleapis.com/) and enable your API usage.
+- Edit your credentials by running in console: 
 
+```bash
+	EDITOR=vim rails credentials:edit
+```
+
+Change the topic and subscription keys for your own.
 
 ## About
 
