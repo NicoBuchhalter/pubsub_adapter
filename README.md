@@ -59,6 +59,23 @@ Log out from postgres and run:
 	rake pubsub
 ```
 
+### Watch Metrics
+
+In rails console: 
+
+```
+	JobMetric.get_metrics
+```
+
+By API:
+
+Start server (let's assume it runs in localhost:3000)
+
+```
+	GET localhost:3000/job_metrics
+```
+
+
 Change the topic and subscription keys for your own.
 
 ## About

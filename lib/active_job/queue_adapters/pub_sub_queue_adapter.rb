@@ -38,7 +38,10 @@ module ActiveJob
             else
     				  Rails.logger.info "Running (#{message.data})"
               begin
-                message.data.constantize.perform_now(*Array.class_eval(message.attributes['arguments']))
+                time = Benchmark.measure do 
+                  message.data.constantize.perform_now(*Array.class_eval(message.attributes['arguments']))
+                end
+                ActiveSupport::Notifications.instrument 'job_performed.pubsub', { duration: time.real }
               rescue StandardError => e
                 Rails.logger.error "#{message.data} failed with error #{e.message}"
                 publish_at(5.seconds.from_now.to_i, message.attributes['retry_count'].to_i + 1, message)
