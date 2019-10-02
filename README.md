@@ -28,14 +28,14 @@ PubSub Adapter Example - Kisi Test Task
 
 ### 3- Database Setup
 
-Run in terminal:
+- Run in terminal:
 
 ```bash
-	psql postgres
+  psql postgres
   CREATE ROLE "pubsub_adapter" LOGIN CREATEDB PASSWORD 'pubsub_adapter';
 ```
 
-Log out from postgres and run:
+- Log out from postgres and run:
 
 ```bash
   bundle exec rake db:create db:migrate
@@ -50,13 +50,20 @@ Log out from postgres and run:
 - Edit your credentials by running in console: 
 
 ```bash
-	EDITOR=vim rails credentials:edit
+  EDITOR=vim rails credentials:edit
 ```
+- And add the following credentials under a `google_cloud` key: 
+
+  * `pub_sub_topic`
+  * `pub_sub_subscription`
+  * `pub_sub_morgue_topic`
+
+
 
 ### Start PubSub Worker
 
 ```bash
-	rake pubsub
+  rake pubsub
 ```
 
 ### Watch Metrics
@@ -64,7 +71,7 @@ Log out from postgres and run:
 In rails console: 
 
 ```
-	JobMetric.get_metrics
+  JobMetric.get_metrics
 ```
 
 By API:
@@ -72,7 +79,7 @@ By API:
 Start server (let's assume it runs in localhost:3000)
 
 ```
-	GET localhost:3000/job_metrics
+  GET localhost:3000/job_metrics
 ```
 
 

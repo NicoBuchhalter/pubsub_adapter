@@ -9,9 +9,12 @@ module ActiveJob
     		@_pubsub ||= Google::Cloud::Pubsub.new
     	end
 
-
       def self.topic
         @_topic ||= pubsub.topic PubsubAdapter::Application.credentials.google_cloud[:pub_sub_topic]
+      end
+
+      def self.morgue_topic
+        @_morgue_topic ||= pubsub.topic PubsubAdapter::Application.credentials.google_cloud[:pub_sub_morgue_topic]
       end
 
       def self.subscription
@@ -19,34 +22,23 @@ module ActiveJob
       end
 
       def enqueue(job)
-        if job.executions == 3
-          return Rails.logger.info "[PubSubQueueAdapter] job #{job.class.name} reached max retries"
-        end
-      	Rails.logger.info "[PubSubQueueAdapter] enqueue job #{job.inspect}"
+				enqueue_at(job, Time.zone.now.to_i)
+      end
 
-				self.class.topic.publish job.class.name, arguments: job.arguments, retry_count: 0, at: Time.zone.now.to_i
+      def enqueue_at(job, timestamp)
+        Rails.logger.info "[PubSubQueueAdapter] enqueue job #{job.inspect}"
+        self.class.topic.publish job.class.name, arguments: job.arguments, retry_count: 0, at: timestamp
       end
 
     	def self.start
     		Rails.logger.info 'Worker is starting!'
 
-				subscriber = subscription.listen do |message|
-				  message.acknowledge!
-          if message.attributes['retry_count'].to_i < 3 
-            if message.attributes['at'].to_i > Time.zone.now.to_i
-              publish_at(message)
-            else
-    				  Rails.logger.info "Running (#{message.data})"
-              begin
-                time = Benchmark.measure do 
-                  message.data.constantize.perform_now(*Array.class_eval(message.attributes['arguments']))
-                end
-                ActiveSupport::Notifications.instrument 'job_performed.pubsub', { duration: time.real }
-              rescue StandardError => e
-                Rails.logger.error "#{message.data} failed with error #{e.message}"
-                publish_at(5.seconds.from_now.to_i, message.attributes['retry_count'].to_i + 1, message)
-              end
-            end
+				subscriber = subscription.listen(deadline: 10) do |message|
+          
+          if (message.attributes['retry_count'].try(:to_i) || 0) >= 3
+            publish_to_morgue(message)
+          elsif (message.attributes['at'].try(:to_i) || 0) <= Time.zone.now.to_i 
+            run_job(message)
           end
 				end
 
@@ -55,15 +47,38 @@ module ActiveJob
         sleep
     	end
 
-      private 
+      def self.run_job(message)
+        Rails.logger.info "Running #{message.data}"
+        begin
+          time = Benchmark.measure do 
+            message.acknowledge!
+            message.data.constantize.perform_now(*Array.class_eval(message.attributes['arguments']))
+          end
+          ActiveSupport::Notifications.instrument 'job_performed.pubsub', { duration: time.real }
+        rescue StandardError => error
+          handle_error(message , error)
+        end
+      end
+
+      def self.handle_error(message , error)
+        Rails.logger.error "#{message.data} failed with error #{error.message}"
+        publish_at(RETRY_INTERVAL.from_now.to_i, message.attributes['retry_count'].to_i + 1, message)
+      end
+
+      def self.publish_to_morgue(message)
+        Rails.logger.info "Sending #{message.data} to morgue after #{message.attributes['retry_count']} attempts"
+        message.acknowledge!
+        retry_count ||= message.attributes['retry_count']
+        arguments = *Array.class_eval(message.attributes['arguments'])
+        morgue_topic.publish message.data, arguments: arguments, retry_count: retry_count
+      end
 
       def self.publish_at(timestamp = nil, retry_count = nil, message)
-        timestamp ||= message.attributes['at'].to_i
-        retry_count ||= message.attributes['retry_count'].to_i
+        timestamp ||= message.attributes['at']
+        retry_count ||= message.attributes['retry_count']
         arguments = *Array.class_eval(message.attributes['arguments'])
         topic.publish message.data, arguments: arguments, retry_count: retry_count, at: timestamp
       end
-
     end
   end
 end
