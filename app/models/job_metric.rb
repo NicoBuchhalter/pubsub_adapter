@@ -7,7 +7,7 @@ class JobMetric < ApplicationRecord
 
 	def self.update_metrics(count_increment, duration_increment)
 		instance = get_instance
-		ActiveRecord::Base.transaction do 
+		instance.with_lock do 
 			instance.update!(
 				total_count: instance.total_count + count_increment, 
 				total_duration: instance.total_duration + duration_increment
